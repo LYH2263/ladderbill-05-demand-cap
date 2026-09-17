@@ -1,6 +1,7 @@
 import json
 
 from app.db import connect
+from app.engines.demand_cap import current_period
 from app.engines.peak_compare import compare_plain_vs_peak
 from app.engines.tier_progressive import calc_bill
 
@@ -14,6 +15,15 @@ def init_db():
         id INTEGER PRIMARY KEY, name TEXT, meter_no TEXT, note TEXT);
     CREATE TABLE IF NOT EXISTS readings(id INTEGER PRIMARY KEY, account_id INTEGER, kwh REAL, peak INTEGER);
     CREATE TABLE IF NOT EXISTS tiers(id INTEGER PRIMARY KEY, up_to REAL, price REAL, sort_order INTEGER);
+    CREATE TABLE IF NOT EXISTS demand_caps(
+        account_id INTEGER,
+        period TEXT,
+        demand_kw REAL,
+        cap_kw REAL,
+        convert_coef REAL,
+        updated_at TEXT,
+        PRIMARY KEY(account_id, period)
+    );
     CREATE TABLE IF NOT EXISTS calc_runs(
         id INTEGER PRIMARY KEY,
         kind TEXT,
@@ -37,6 +47,18 @@ def init_db():
         )
         conn.execute("INSERT INTO readings(account_id, kwh, peak) VALUES (1, 120, 0)")
         conn.execute("INSERT INTO readings(account_id, kwh, peak) VALUES (2, 400, 1)")
+        period = current_period()
+        # 户1 需量低于阈值，不触发；户2 需量超阈值，演示附加电量并入。
+        conn.execute(
+            "INSERT INTO demand_caps(account_id, period, demand_kw, cap_kw, convert_coef, updated_at)"
+            " VALUES (?,?,?,?,?,datetime('now'))",
+            (1, period, 8.0, 30.0, 3.0),
+        )
+        conn.execute(
+            "INSERT INTO demand_caps(account_id, period, demand_kw, cap_kw, convert_coef, updated_at)"
+            " VALUES (?,?,?,?,?,datetime('now'))",
+            (2, period, 50.0, 40.0, 3.0),
+        )
         conn.execute("INSERT INTO settings(key, value) VALUES ('peak_factor', '1.2')")
         conn.execute("INSERT INTO settings(key, value) VALUES ('currency', 'CNY')")
         tiers = [{"up_to": r[0], "price": r[1]} for r in [(180, 0.52), (260, 0.62), (None, 0.82)]]
