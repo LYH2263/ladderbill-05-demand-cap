@@ -22,6 +22,16 @@ def init_db():
         result_json TEXT,
         created_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS demand_caps(
+        id INTEGER PRIMARY KEY,
+        account_id INTEGER NOT NULL,
+        period TEXT NOT NULL,
+        demand_kw REAL NOT NULL,
+        threshold_kw REAL NOT NULL,
+        conversion_factor REAL NOT NULL,
+        updated_at TEXT,
+        UNIQUE(account_id, period)
+    );
     """
     )
     if conn.execute("SELECT COUNT(*) c FROM accounts").fetchone()["c"] == 0:
@@ -37,6 +47,10 @@ def init_db():
         )
         conn.execute("INSERT INTO readings(account_id, kwh, peak) VALUES (1, 120, 0)")
         conn.execute("INSERT INTO readings(account_id, kwh, peak) VALUES (2, 400, 1)")
+        conn.execute(
+            "INSERT INTO demand_caps(account_id, period, demand_kw, threshold_kw, conversion_factor, updated_at)"
+            " VALUES (2, '2026-09', 120, 100, 2, datetime('now'))"
+        )
         conn.execute("INSERT INTO settings(key, value) VALUES ('peak_factor', '1.2')")
         conn.execute("INSERT INTO settings(key, value) VALUES ('currency', 'CNY')")
         tiers = [{"up_to": r[0], "price": r[1]} for r in [(180, 0.52), (260, 0.62), (None, 0.82)]]
